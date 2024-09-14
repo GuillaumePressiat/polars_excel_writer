@@ -871,8 +871,11 @@ impl PolarsXlsxWriter {
     /// #     // Create a dataframe with Null values.
     /// #     let csv_string = "Foo,Bar\nNULL,B\nA,B\nA,NULL\nA,B\n";
     /// #     let buffer = std::io::Cursor::new(csv_string);
-    /// #     let df = CsvReader::new(buffer)
-    /// #         .with_null_values(NullValues::AllColumnsSingle("NULL".to_string()).into())
+    /// #     let df = CsvReadOptions::default()
+    /// #         .map_parse_options(|parse_options| {
+    /// #             parse_options.with_null_values(Some(NullValues::AllColumnsSingle("NULL".to_string())))
+    /// #         })
+    /// #         .into_reader_with_file_handle(buffer)
     /// #         .finish()
     /// #         .unwrap();
     /// #
@@ -912,7 +915,7 @@ impl PolarsXlsxWriter {
     /// `rust_xlsxwriter` docs on [`worksheet.autofit()`] for details.
     ///
     /// [`worksheet.autofit()`]:
-    ///     https://docs.rs/rust_xlsxwriter/latest/rust_xlsxwriter/struct.Worksheet.html#method.autofit
+    ///     https://docs.rs/rust_xlsxwriter/latest/rust_xlsxwriter/worksheet/struct.Worksheet.html#method.autofit
     ///
     /// # Parameters
     ///
@@ -962,6 +965,265 @@ impl PolarsXlsxWriter {
     ///
     pub fn set_autofit(&mut self, autofit: bool) -> &mut PolarsXlsxWriter {
         self.options.use_autofit = autofit;
+        self
+    }
+
+    /// Set the worksheet zoom factor.
+    ///
+    /// Set the worksheet zoom factor in the range 10 <= zoom <= 400.
+    ///
+    /// # Parameters
+    ///
+    /// * `zoom` - The worksheet zoom level. The default zoom level is 100.
+    ///
+    /// # Examples
+    ///
+    /// An example of writing a Polar Rust dataframe to an Excel file. This
+    /// demonstrates setting the worksheet zoom level.
+    ///
+    /// ```
+    /// # // This code is available in examples/write_excel_set_zoom.rs
+    /// #
+    /// # use polars::prelude::*;
+    /// #
+    /// # fn main() {
+    /// #     // Create a sample dataframe for the example.
+    /// #     let df: DataFrame = df!(
+    /// #         "String" => &["North", "South", "East", "West"],
+    /// #         "Int" => &[1, 2, 3, 4],
+    /// #         "Float" => &[1.0, 2.22, 3.333, 4.4444],
+    /// #     )
+    /// #     .unwrap();
+    /// #
+    /// #     example(&df).unwrap();
+    /// # }
+    /// #
+    /// use polars_excel_writer::PolarsXlsxWriter;
+    ///
+    /// fn example(df: &DataFrame) -> PolarsResult<()> {
+    ///     let mut xlsx_writer = PolarsXlsxWriter::new();
+    ///
+    ///     xlsx_writer.set_zoom(200);
+    ///
+    ///     xlsx_writer.write_dataframe(df)?;
+    ///     xlsx_writer.save("dataframe.xlsx")?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// Output file:
+    ///
+    /// <img src="https://rustxlsxwriter.github.io/images/write_excel_set_zoom.png">
+    ///
+    pub fn set_zoom(&mut self, zoom: u16) -> &mut PolarsXlsxWriter {
+        self.options.zoom = zoom;
+        self
+    }
+
+    /// Set the option to turn on/off the screen gridlines.
+    ///
+    /// The `set_screen_gridlines()` method is use to turn on/off gridlines on
+    /// displayed worksheet. It is on by default.
+    ///
+    /// # Parameters
+    ///
+    /// * `enable` - Turn the property on/off. It is on by default.
+    ///
+    ///
+    /// # Examples
+    ///
+    /// An example of writing a Polar Rust dataframe to an Excel file. This
+    /// demonstrates turning off the screen gridlines.
+    ///
+    /// ```
+    /// # // This code is available in examples/write_excel_set_screen_gridlines.rs
+    /// #
+    /// # use polars::prelude::*;
+    /// #
+    /// # fn main() {
+    /// #     // Create a sample dataframe for the example.
+    /// #     let df: DataFrame = df!(
+    /// #         "String" => &["North", "South", "East", "West"],
+    /// #         "Int" => &[1, 2, 3, 4],
+    /// #         "Float" => &[1.0, 2.22, 3.333, 4.4444],
+    /// #     )
+    /// #     .unwrap();
+    /// #
+    /// #     example(&df).unwrap();
+    /// # }
+    /// #
+    /// use polars_excel_writer::PolarsXlsxWriter;
+    ///
+    /// fn example(df: &DataFrame) -> PolarsResult<()> {
+    ///     let mut xlsx_writer = PolarsXlsxWriter::new();
+    ///
+    ///     xlsx_writer.set_screen_gridlines(false);
+    ///
+    ///     xlsx_writer.write_dataframe(df)?;
+    ///     xlsx_writer.save("dataframe.xlsx")?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// Output file:
+    ///
+    /// <img src="https://rustxlsxwriter.github.io/images/write_excel_set_screen_gridlines.png">
+    ///
+    pub fn set_screen_gridlines(&mut self, enable: bool) -> &mut PolarsXlsxWriter {
+        self.options.screen_gridlines = enable;
+
+        self
+    }
+
+    /// Freeze panes in a worksheet.
+    ///
+    /// The `set_freeze_panes()` method can be used to divide a worksheet into
+    /// horizontal or vertical regions known as panes and to “freeze” these
+    /// panes so that the splitter bars are not visible.
+    ///
+    /// As with Excel the split is to the top and left of the cell. So to freeze
+    /// the top row and leftmost column you would use `(1, 1)` (zero-indexed).
+    ///
+    /// You can set one of the row and col parameters as 0 if you do not want
+    /// either the vertical or horizontal split. For example a common
+    /// requirement is to freeze the top row which is done with the arguments
+    /// `(1, 0)` see below.
+    ///
+    ///
+    /// # Parameters
+    ///
+    /// * `row` - The zero indexed row number.
+    /// * `col` - The zero indexed column number.
+    ///
+    ///
+    /// # Examples
+    ///
+    /// An example of writing a Polar Rust dataframe to an Excel file. This
+    /// demonstrates freezing the top row.
+    ///
+    /// ```
+    /// # // This code is available in examples/write_excel_set_freeze_panes.rs
+    /// #
+    /// # use polars::prelude::*;
+    /// #
+    /// # fn main() {
+    /// #     // Create a sample dataframe for the example.
+    /// #     let df: DataFrame = df!(
+    /// #         "String" => &["North", "South", "East", "West"],
+    /// #         "Int" => &[1, 2, 3, 4],
+    /// #         "Float" => &[1.0, 2.22, 3.333, 4.4444],
+    /// #     )
+    /// #     .unwrap();
+    /// #
+    /// #     example(&df).unwrap();
+    /// # }
+    /// #
+    /// use polars_excel_writer::PolarsXlsxWriter;
+    ///
+    /// fn example(df: &DataFrame) -> PolarsResult<()> {
+    ///     let mut xlsx_writer = PolarsXlsxWriter::new();
+    ///
+    ///     xlsx_writer.set_freeze_panes(1, 0);
+    ///
+    ///     xlsx_writer.write_dataframe(df)?;
+    ///     xlsx_writer.save("dataframe.xlsx")?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// Output file:
+    ///
+    /// <img
+    /// src="https://rustxlsxwriter.github.io/images/write_excel_set_freeze_panes.png">
+    ///
+    pub fn set_freeze_panes(&mut self, row: u32, col: u16) -> &mut PolarsXlsxWriter {
+        self.options.freeze_cell = (row, col);
+
+        self
+    }
+
+    /// Set the top most cell in the scrolling area of a freeze pane.
+    ///
+    /// This method is used in conjunction with the
+    /// [`PolarsXlsxWriter::set_freeze_panes()`] method to set the top most
+    /// visible cell in the scrolling range. For example you may want to freeze
+    /// the top row but have the worksheet pre-scrolled so that a cell other
+    /// than `(0, 0)` is visible in the scrolled area.
+    ///
+    /// # Parameters
+    ///
+    /// * `row` - The zero indexed row number.
+    /// * `col` - The zero indexed column number.
+    ///
+    ///
+    /// # Examples
+    ///
+    /// An example of writing a Polar Rust dataframe to an Excel file. This
+    /// demonstrates freezing the top row and setting a non-default first row
+    /// within the pane.
+    ///
+    /// ```
+    /// # // This code is available in examples/write_excel_set_freeze_panes_top_cell.rs
+    /// #
+    /// # use polars::prelude::*;
+    /// #
+    /// # fn main() {
+    /// #     // Create a sample dataframe for the example.
+    /// #     let df: DataFrame = df!(
+    /// #         "String" => &["North", "South", "East", "West"],
+    /// #         "Int" => &[1, 2, 3, 4],
+    /// #         "Float" => &[1.0, 2.22, 3.333, 4.4444],
+    /// #     )
+    /// #     .unwrap();
+    /// #
+    /// #     example(&df).unwrap();
+    /// # }
+    /// #
+    /// use polars_excel_writer::PolarsXlsxWriter;
+    ///
+    /// fn example(df: &DataFrame) -> PolarsResult<()> {
+    ///     let mut xlsx_writer = PolarsXlsxWriter::new();
+    ///
+    ///     xlsx_writer.set_freeze_panes(1, 0);
+    ///     xlsx_writer.set_freeze_panes_top_cell(3, 0);
+    ///
+    ///     xlsx_writer.write_dataframe(df)?;
+    ///     xlsx_writer.save("dataframe.xlsx")?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// Output file:
+    ///
+    /// <img
+    /// src="https://rustxlsxwriter.github.io/images/write_excel_set_freeze_panes_top_cell.png">
+    ///
+    pub fn set_freeze_panes_top_cell(&mut self, row: u32, col: u16) -> &mut PolarsXlsxWriter {
+        self.options.top_cell = (row, col);
+
+        self
+    }
+
+    /// Turn on/off the autofilter for the table header.
+    ///
+    /// By default Excel adds an autofilter to the header of a table. This
+    /// method can be used to turn it off if necessary.
+    ///
+    /// Note, you can call this method directly on a [`Table`] object which is
+    /// passed to [`PolarsXlsxWriter::set_table()`].
+    ///
+    /// # Parameters
+    ///
+    /// * `enable` - Turn the property on/off. It is on by default.
+    ///
+    pub fn set_autofilter(&mut self, enable: bool) -> &mut PolarsXlsxWriter {
+        let table = self.options.table.clone().set_autofilter(enable);
+        self.options.table = table;
+
         self
     }
 
@@ -1074,7 +1336,7 @@ impl PolarsXlsxWriter {
     /// [`set_name()` errors] for more details.
     ///
     /// [`set_name()` errors]:
-    ///     https://docs.rs/rust_xlsxwriter/latest/rust_xlsxwriter/struct.Worksheet.html#errors
+    ///     https://docs.rs/rust_xlsxwriter/latest/rust_xlsxwriter/worksheet/struct.Worksheet.html#errors
     ///
     /// # Examples
     ///
@@ -1427,6 +1689,16 @@ impl PolarsXlsxWriter {
             worksheet.autofit();
         }
 
+        // Set the zoom level.
+        worksheet.set_zoom(options.zoom);
+
+        // Set the screen gridlines.
+        worksheet.set_screen_gridlines(options.screen_gridlines);
+
+        // Set the worksheet panes.
+        worksheet.set_freeze_panes(options.freeze_cell.0, options.freeze_cell.1)?;
+        worksheet.set_freeze_panes_top_cell(options.top_cell.0, options.top_cell.1)?;
+
         Ok(())
     }
 }
@@ -1445,6 +1717,10 @@ pub(crate) struct WriterOptions {
     pub(crate) datetime_format: Format,
     pub(crate) null_string: Option<String>,
     pub(crate) table: Table,
+    pub(crate) zoom: u16,
+    pub(crate) screen_gridlines: bool,
+    pub(crate) freeze_cell: (u32, u16),
+    pub(crate) top_cell: (u32, u16),
 }
 
 impl Default for WriterOptions {
@@ -1463,6 +1739,10 @@ impl WriterOptions {
             null_string: None,
             float_format: Format::default(),
             table: Table::new(),
+            zoom: 100,
+            screen_gridlines: true,
+            freeze_cell: (0, 0),
+            top_cell: (0, 0),
         }
     }
 }
